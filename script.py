@@ -14,9 +14,9 @@ OPCODES = {OP_DUP, OP_SHA256, OP_EQUALVERIFY, OP_CHECKSIG}
 
 
 def sha256_hash(data: bytes) -> bytes:
-  header = unhexlify(data)
-  answer = hashlib.sha256(header).digest()
-pass
+    answer= (sha256(data).digest())
+    return answer
+
 
 
 def verify_p2pkh(signature: bytes, pubkey: bytes, expected_pubkey_hash: bytes, tx_data: bytes) -> bool:
