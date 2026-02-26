@@ -20,15 +20,15 @@ pass
 
 
 def verify_p2pkh(signature: bytes, pubkey: bytes, expected_pubkey_hash: bytes, tx_data: bytes) -> bool:
-   # Step 1: Check the public key hashes to the expected value
     if sha256_hash(pubkey) != expected_pubkey_hash:
         return False
 
     # Step 2: Verify the signature is valid for this transaction
-    try:
+    else:
+      try:
         VerifyKey(pubkey).verify(tx_data, signature)
         return True
-    except BadSignatureError:
+      except BadSignatureError:
         return False
     # TODO: Implement verify_p2pkh
     # Step 1: Check that sha256_hash(pubkey) == expected_pubkey_hash
