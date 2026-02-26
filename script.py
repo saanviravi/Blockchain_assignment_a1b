@@ -41,16 +41,14 @@ class Script:
 
     def to_bytes(self) -> bytes:
         result = b''
-        for element in self.elements:
-            if element in OPCODES:
-                # Encode opcodes as UTF-8 strings
-                result += element.encode('utf-8')
+        for a in self.elements:
+            if a in OPCODES:
+                res += a.encode('utf-8')
             else:
-                # Treat as hex string, convert to raw bytes
-                result += bytes.fromhex(element)
+                res += bytes.fromhex(a)
         return result
         # TODO: Implement serialization
-        pass
+        
 
     @staticmethod
     def p2pkh_locking_script(pub_key_hash: str) -> 'Script':
