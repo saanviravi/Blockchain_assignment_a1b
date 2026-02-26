@@ -140,9 +140,8 @@ def merkle_proof(tx_hashes: List[str], index: int) -> List[Tuple[str, str]]:
     else if index%2!=0:
         res.append((tx_hashes[index-1], 'left'))
         index=index//2
+        
     while(len(tx_hashes)>1):
-        
-        
         if tx_hashes[i+1]:
             new=tx_hashes[i]+tx_hashes[i+1]
             new=unhexlify(new)
@@ -156,6 +155,13 @@ def merkle_proof(tx_hashes: List[str], index: int) -> List[Tuple[str, str]]:
             new=sha256(new).hexdigest()
             tx_hashes[i]=new
             i=0
+            if index%2==0:
+                res.append((tx_hashes[index+1], 'right'))
+                index=index//2
+            else if index%2!=0:
+                res.append((tx_hashes[index-1], 'left'))
+                index=index//2
+            
 
         
     
