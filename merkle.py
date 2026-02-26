@@ -132,10 +132,38 @@ def merkle_proof(tx_hashes: List[str], index: int) -> List[Tuple[str, str]]:
     Returns:
         List of (sibling_hash, position) tuples forming the proof path
     """
+    i=0
+    res=[]
+    if index%2==0:
+        res.append((tx_hashes[index+1], 'right'))
+        index=index//2
+    else if index%2!=0:
+        res.append((tx_hashes[index-1], 'left'))
+        index=index//2
+    while(len(tx_hashes)>1):
+        
+        
+        if tx_hashes[i+1]:
+            new=tx_hashes[i]+tx_hashes[i+1]
+            new=unhexlify(new)
+            new=sha256(new).hexdigest()
+            tx_hashes[i]=new
+            tx_hashes.pop(i+1)
+            i+=1
+        else:
+            new=tx_hashes[i]+ZERO_HASH
+            new=unhexlify(new)
+            new=sha256(new).hexdigest()
+            tx_hashes[i]=new
+            i=0
+
+        
+    
     
     # TODO: Implement merkle_proof
     # Hint: Track the index as you move up the tree (idx = idx // 2)
-    pass
+    
+ 
 
 
 def verify_merkle_proof(tx_hash: str, proof: List[Tuple[str, str]], root: str) -> bool:
