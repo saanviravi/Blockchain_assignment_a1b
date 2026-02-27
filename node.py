@@ -72,7 +72,6 @@ class Node:
         """
         # TODO: Implement new_chain
         # Hint: Loop through genesis.txs and for each tx, create UTXOs from outputs
-        def new_chain(self, genesis: Block):
         utxos = []
         for tx in genesis.txs: #creating UTXO, looping through tx 
             for i, output in enumerate(tx.outputs):
@@ -106,23 +105,22 @@ class Node:
         """
         # TODO: Implement append
         # Hint: block.txs is a list of transactions - update UTXOs for each
-       
         for chain in self.chains:
-            last_block_hash = chain.chain[-1].pow
-        
-        if block.prev == last_block_hash:
-            if not self.is_valid_block(block, chain): #validating the block before adding it 
-                return False
-            
-            blocks = chain.chain + [block]
-            utxos1 = chain.utxos.copy()
-            bchain = Blockchain(chain=blocks, utxos=utxos1)
-            
-            for tx in block.txs:
-                self.update_utxos(bchain, tx)
-            
-            self.chains.append(bchain)
-            return True
+            last_block_hash = chain.chain[-1].hash()
+    
+            if block.prev == last_block_hash:  # Now INSIDE the loop
+                if not self.is_valid_block(block, chain):
+                    return False
+                
+                blocks = chain.chain + [block]
+                utxos1 = chain.utxos.copy()
+                bchain = Blockchain(chain=blocks, utxos=utxos1)
+                
+                for tx in block.txs:
+                    self.update_utxos(bchain, tx)
+                
+                self.chains.append(bchain)
+                return True
     
         return False
 
@@ -155,7 +153,34 @@ class Node:
         # TODO: Implement build_block
         # Hint: If txs is a single Transaction, wrap it in a list first
         # Hint: Use a temporary UTXO set to validate transactions in order
-        pass
+        if isinstance(txs, Transaction):
+            txs=[txs]
+        
+        longest_chain = max(self.chains, key=lambda c: len(c.chain))
+
+        temp_utxos= longest_chain.utxos.copy()
+        temp_chain = Blockchain(chain=longest_chain.chain.copy(), utxos=temp_utxos)
+        #validating transactions
+        for i in range(len(txs)):
+            if i==0:
+                is_coinbase_allowed=True
+            else:
+                is_coinbase_allowed=False
+                
+            if not self.is_transaction_valid(txs[i], temp_chain, is_coinbase_allowed):
+                return None
+            else:
+                self.update_utxos(temp_chain, txs[i])
+            
+        prev_hash= longest_chain.chain[-1].hash()
+
+        block=Block(prev_hash,txs, None)
+        block.mine()
+        return block
+
+
+
+            
 
     def is_valid_block(self, block: Block, chain: Blockchain) -> bool:
         """Validate a block's proof of work and all transactions."""
@@ -236,6 +261,9 @@ class Node:
             return False
     
         return True
+
+        
+        
 
     def update_utxos(self, blockchain: Blockchain, tx: Transaction):
         """
