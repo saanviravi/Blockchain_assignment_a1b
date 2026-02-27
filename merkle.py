@@ -47,39 +47,46 @@ def build_merkle_tree(tx_hashes: List[str]) -> str:
 
 
 def merkle_proof(tx_hashes: List[str], index: int) -> List[Tuple[str, str]]:
+    if len(tx_hashes) <= 1:
+        return []
+    
     res = []
     i = 0
 
     if index % 2 == 0:
-        res.append((tx_hashes[index+1], 'right'))
-        index = index // 2
-    elif index % 2 != 0:
-        res.append((tx_hashes[index-1], 'left'))
-        index = index // 2
-
-    while(len(tx_hashes) > 1):
-        if i + 1 < len(tx_hashes): 
-            new = tx_hashes[i] + tx_hashes[i+1]
-            new = unhexlify(new)
-            new = double_sha256(new).hex()
-            tx_hashes[i] = new
-            tx_hashes.pop(i+1)
-            i += 1
+        if index + 1 < len(tx_hashes):
+            res.append((tx_hashes[index + 1], 'right'))
         else:
-            new = tx_hashes[i] + ZERO_HASH
+            res.append((ZERO_HASH, 'right'))
+    else:
+        res.append((tx_hashes[index - 1], 'left'))
+    index = index // 2
+
+    while len(tx_hashes) > 1:
+        if len(tx_hashes) % 2 != 0:
+            tx_hashes.append(ZERO_HASH)
+
+        if i + 1 < len(tx_hashes): 
+            new = tx_hashes[i] + tx_hashes[i + 1]
             new = unhexlify(new)
             new = double_sha256(new).hex()
             tx_hashes[i] = new
-            i = 0
-            index = index // 2
-            if index % 2 == 0:
-                res.append((tx_hashes[index+1], 'right'))
-                index = index // 2
-            elif index % 2 != 0:
-                res.append((tx_hashes[index-1], 'left'))
-                index = index // 2
-    return res
+            tx_hashes.pop(i + 1)
+            i += 1
 
+        if i >= len(tx_hashes):
+            i = 0
+            if len(tx_hashes) > 1:
+                if index % 2 == 0:
+                    if index + 1 < len(tx_hashes):
+                        res.append((tx_hashes[index + 1], 'right'))
+                    else:
+                        res.append((ZERO_HASH, 'right'))
+                else:
+                    res.append((tx_hashes[index - 1], 'left'))
+                index = index // 2
+
+    return res
 
 def verify_merkle_proof(tx_hash: str, proof: List[Tuple[str, str]], root: str) -> bool:
     if len(proof) == 0:
