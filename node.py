@@ -72,7 +72,14 @@ class Node:
         """
         # TODO: Implement new_chain
         # Hint: Loop through genesis.txs and for each tx, create UTXOs from outputs
-        pass
+        def new_chain(self, genesis: Block):
+        utxos = []
+        for tx in genesis.txs: #creating UTXO, looping through tx 
+            for i, output in enumerate(tx.outputs):
+                utxos.append(output)
+        blockchain = Blockchain(chain=[genesis], utxos=utxos) #new chain 
+        self.chains.append(blockchain) #adds to all valid blockchains
+
 
     def append(self, block: Block) -> bool:
         """
