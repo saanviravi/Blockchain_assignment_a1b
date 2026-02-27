@@ -23,14 +23,11 @@ def verify_p2pkh(signature: bytes, pubkey: bytes, expected_pubkey_hash: bytes, t
     if (sha256_hash(pubkey) != expected_pubkey_hash):
         return False
     else:
-        try:
+        try: #verifying signatures
             VerifyKey(pubkey).verify(tx_data, signature)
             return True
         except BadSignatureError:
             return False
-    # TODO: Implement verify_p2pkh
-    # Step 1: Check that sha256_hash(pubkey) == expected_pubkey_hash
-    # Step 2: Verify the signature using VerifyKey
     pass
 
 
@@ -47,7 +44,7 @@ class Script:
             else:
                 res += bytes.fromhex(a)
         return result
-        # TODO: Implement serialization
+     
         
 
     @staticmethod
@@ -88,6 +85,8 @@ class ScriptInterpreter:
 
     def execute(self, script: Script, tx_data: bytes) -> bool:
         """
+        for element in script.elements:
+            if element == "OP_DUP"
         Execute a script. tx_data is used for OP_CHECKSIG.
 
         Returns True if script succeeds (stack top is truthy), False otherwise.
@@ -107,19 +106,13 @@ class ScriptInterpreter:
         pass
 
     def _op_dup(self):
-        if not self.stack:
+        if len(self.stack)== 0:
             raise IndexError("OP_DUP: empty stack")
         self.stack.append(self.stack[-1])
-        """
-        OP_DUP: Duplicate the top stack element.
-
-        Stack: [..., a] -> [..., a, a]
-        """
-        # TODO: Implement OP_DUP
         pass
 
     def _op_sha256(self):
-        if not self.stack:
+        if  len(self.stack) == 0:
             raise IndexError("OP_SHA256: empty stack")
         data = self.stack.pop()
         self.stack.append(sha256_hash(data))
@@ -144,5 +137,4 @@ class ScriptInterpreter:
             self.stack.append(b'\x01')  # True
         except BadSignatureError:
             self.stack.append(b'\x00')  # False
-        # TODO: Implement OP_CHECKSIG
         pass
