@@ -99,7 +99,26 @@ class Node:
         """
         # TODO: Implement append
         # Hint: block.txs is a list of transactions - update UTXOs for each
-        pass
+       
+        for chain in self.chains:
+            last_block_hash = chain.chain[-1].pow
+        
+        if block.prev == last_block_hash:
+            if not self.is_valid_block(block, chain): #validating the block before adding it 
+                return False
+            
+            blocks = chain.chain + [block]
+            utxos1 = chain.utxos.copy()
+            bchain = Blockchain(chain=blocks, utxos=utxos1)
+            
+            for tx in block.txs:
+                self.update_utxos(bchain, tx)
+            
+            self.chains.append(bchain)
+            return True
+    
+        return False
+
 
     def build_block(self, txs: List[Transaction]) -> Optional[Block]:
         """
@@ -183,7 +202,33 @@ class Node:
         #       - tx_data = bytes.fromhex(tx.bytes_to_sign())
         # Hint: Use verify_p2pkh(signature, pubkey, expected_hash, tx_data)
         # Hint: Match UTXOs using txid and output_index (like Bitcoin's outpoint)
-        pass
+        if tx.is_coinbase():
+            if not is_coinbase_allowed:
+                return False
+            if sum(output.value for output in tx.outputs) > BLOCK_REWARD:
+                return False
+            return True
+        
+        seen = set()
+        for inp in tx.inputs:
+            if inp.tx_hash in seen:
+                return False
+            seen.add(inp.tx_hash)
+
+        for inp in tx.inputs:
+            if inp.tx_hash not in blockchain.utxos:
+                return False
+            signature = bytes.fromhex(inp.script_sig.elements[0])
+            pubkey = bytes.fromhex(inp.script_sig.elements[1])
+            expected_hash = bytes.fromhex(inp.output.script_pubkey.elements[2])
+            tx_data = bytes.fromhex(tx.bytes_to_sign())   
+            if not verify_p2pkh(signature, pubkey, expected_hash, tx_data):
+                return False 
+
+        if sum(inp.output.value for inp in tx.inputs) != sum(out.value for out in tx.outputs):
+            return False
+    
+        return True
 
     def update_utxos(self, blockchain: Blockchain, tx: Transaction):
         """
