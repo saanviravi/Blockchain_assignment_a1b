@@ -67,13 +67,13 @@ class Block:
     def mine(self):
         nonce_value = 0
         while True:
-            self.nonce = str(nonce_value)
+            self.nonce = nonce_value.to_bytes(4, byteorder='big').hex()
             block_hash = self.hash() #string hashes, does not require hexadecimal conversion
             if int(block_hash, 16) <= DIFFICULTY: #string to int conversion for comparison
                 self.pow = block_hash #saving proof pf work 
                 break
             nonce_value += 1
-        pass
+        
 
     # Hash the block header (prev + merkle_root + nonce)
     def hash(self) -> str:
