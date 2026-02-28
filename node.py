@@ -70,10 +70,10 @@ class Node:
 
         Note: Genesis block has block.txs (a list of transactions)
         """
-        utxos = []
+        utxos = {}
         for tx in genesis.txs:
             for i, output in enumerate(tx.outputs):
-                utxos.append((tx.tx_hash, i, output))
+                utxos[(tx.tx_hash, i)] = output
         blockchain = Blockchain(chain=[genesis], utxos=utxos)
         self.chains.append(blockchain)
 
@@ -109,7 +109,7 @@ class Node:
         # TODO: Implement append
         # Hint: block.txs is a list of transactions - update UTXOs for each
         for c in self.chains:
-            last_block= c.chain[-1].hash()
+            last_block = c.chain[-1].pow
             
             if block.prev == last_block:
                 if not self.is_valid_block(block, c):
@@ -153,23 +153,25 @@ class Node:
         # TODO: Implement build_block
         # Hint: If txs is a single Transaction, wrap it in a list first
         # Hint: Use a temporary UTXO set to validate transactions in order
-        if isinstance(txs, Transaction):
-            txs = [txs]
-    
-        longest_chain = max(self.chains, key=len)
-        temp_utxos = self.get_utxos(longest_chain).copy()
+        longest_chain = max(self.chains, key=lambda c: len(c.chain))
+        prev_hash = longest_chain.chain[-1].pow
+        temp_utxos = longest_chain.utxos.copy()
+        
         for i, tx in enumerate(txs):
             if tx.is_coinbase():
                 if i != 0:
                     return None
             else:
                 for inp in tx.inputs:
-                    if inp not in temp_utxos:
+                    input_key = (inp.txid, inp.output_index)
+                    if input_key not in temp_utxos:
                         return None
-                    del temp_utxos[inp]
-            tx_hash = tx.hash()
+                    del temp_utxos[input_key]
+            
+            tx_hash = tx.tx_hash
             for idx, output in enumerate(tx.outputs):
                 temp_utxos[(tx_hash, idx)] = output
+        
         block = Block(prev_hash, txs)
         block.mine()
         
@@ -190,11 +192,9 @@ class Node:
         temp_chain = Blockchain(chain=chain.chain.copy(), utxos=temp_utxos)
 
         for i, tx in enumerate(block.txs):
-            # First transaction can be coinbase
             is_coinbase_allowed = (i == 0)
             if not self.is_transaction_valid(tx, temp_chain, is_coinbase_allowed):
                 return False
-            # Update temp UTXOs so next transaction can spend outputs from this one
             self.update_utxos(temp_chain, tx)
 
         return True
@@ -227,7 +227,49 @@ class Node:
         #       - tx_data = bytes.fromhex(tx.bytes_to_sign())
         # Hint: Use verify_p2pkh(signature, pubkey, expected_hash, tx_data)
         # Hint: Match UTXOs using txid and output_index (like Bitcoin's outpoint)
-        pass
+        if tx.is_coinbase():
+            if not is_coinbase_allowed:
+                return False
+            total_output = sum(out.value for out in tx.outputs)
+            if total_output > BLOCK_REWARD:
+                return False
+            return True
+        
+        utxos = blockchain.utxos
+        
+        seen_inputs = set()
+        for inp in tx.inputs:
+            input_key = (inp.txid, inp.output_index)
+            if input_key in seen_inputs:
+                return False
+            seen_inputs.add(input_key)
+        
+        total_input = 0
+        for inp in tx.inputs:
+            x = (inp.txid, inp.output_index)
+            if x not in utxos:
+                return False
+            
+            utxo_output = utxos[x]
+            if inp.output.value != utxo_output.value:
+                return False
+            
+            total_input += inp.output.value
+            
+            signature = bytes.fromhex(inp.script_sig.elements[0])
+            pubkey = bytes.fromhex(inp.script_sig.elements[1])
+            expected_hash = bytes.fromhex(inp.output.script_pubkey.elements[2])
+            tx_data = bytes.fromhex(tx.bytes_to_sign())
+            
+            if not verify_p2pkh(signature, pubkey, expected_hash, tx_data):
+                return False
+        
+        total_output = sum(out.value for out in tx.outputs)
+        
+        if total_input != total_output:
+            return False
+        
+        return True
 
     def update_utxos(self, blockchain: Blockchain, tx: Transaction):
         """
@@ -240,15 +282,12 @@ class Node:
         
        
         for inp in tx.inputs:
-            for utxo in blockchain.utxos[:]:  
-                utxo_tx_hash, utxo_index, utxo_output = utxo
-                if inp.tx_hash == utxo_tx_hash and inp.output_index == utxo_index:
-                    blockchain.utxos.remove(utxo)
-                    break
-
+            input_key = (inp.txid, inp.output_index)
+            if input_key in blockchain.utxos:
+                del blockchain.utxos[input_key]
         
         for index, output in enumerate(tx.outputs):
-            blockchain.utxos.append((tx.tx_hash, index, output))
+            blockchain.utxos[(tx.tx_hash, index)] = output
 
     def verify_pow(self, block: Block) -> bool:
         """Verify proof of work meets difficulty requirement."""
