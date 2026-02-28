@@ -70,16 +70,17 @@ class Node:
 
         Note: Genesis block has block.txs (a list of transactions)
         """
-        # TODO: Implement new_chain
-        # Hint: Loop through genesis.txs and for each tx, create UTXOs from outputs
         utxos = []
         for tx in genesis.txs:
             for i, output in enumerate(tx.outputs):
-                # Store UTXO as tuple: (tx_hash, output_index, output)
                 utxos.append((tx.tx_hash, i, output))
         blockchain = Blockchain(chain=[genesis], utxos=utxos)
         self.chains.append(blockchain)
 
+
+        # TODO: Implement new_chain
+        # Hint: Loop through genesis.txs and for each tx, create UTXOs from outputs
+        pass
 
     def append(self, block: Block) -> bool:
         """
@@ -104,27 +105,25 @@ class Node:
         3. Create a new chain (fork) with the block appended
         4. Update UTXOs for all transactions in the block
         """
+
         # TODO: Implement append
         # Hint: block.txs is a list of transactions - update UTXOs for each
-        for chain in self.chains:
-            last_block_hash = chain.chain[-1].hash()
-    
-            if block.prev == last_block_hash:
-                if not self.is_valid_block(block, chain):
+        for c in self.chains:
+            last_block= c.chain[-1].hash()
+            
+            if block.prev == last_block:
+                if not self.is_valid_block(block, c):
                     return False
-                
-                blocks = chain.chain + [block]
-                utxos1 = chain.utxos.copy()
-                bchain = Blockchain(chain=blocks, utxos=utxos1)
+            
+                new_chain = Blockchain(chain=c.chain + [block], utxos=c.utxos.copy())
                 
                 for tx in block.txs:
-                    self.update_utxos(bchain, tx)
+                    self.update_utxos(new_chain, tx)
                 
-                self.chains.append(bchain)
+                self.chains.append(new_chain)
                 return True
-    
+        
         return False
-
 
     def build_block(self, txs: List[Transaction]) -> Optional[Block]:
         """
@@ -156,30 +155,25 @@ class Node:
         # Hint: Use a temporary UTXO set to validate transactions in order
         if isinstance(txs, Transaction):
             txs = [txs]
-        
-        longest_chain = max(self.chains, key=lambda c: len(c.chain))
-
-        temp_utxos = longest_chain.utxos.copy()
-        temp_chain = Blockchain(chain=longest_chain.chain.copy(), utxos=temp_utxos)
-        
-        # Validating transactions
-        for i in range(len(txs)):
-            if i == 0:
-                is_coinbase_allowed = True
+    
+        longest_chain = max(self.chains, key=len)
+        temp_utxos = self.get_utxos(longest_chain).copy()
+        for i, tx in enumerate(txs):
+            if tx.is_coinbase():
+                if i != 0:
+                    return None
             else:
-                is_coinbase_allowed = False
-                
-            if not self.is_transaction_valid(txs[i], temp_chain, is_coinbase_allowed):
-                return None
-            else:
-                self.update_utxos(temp_chain, txs[i])
-            
-        prev_hash = longest_chain.chain[-1].hash()
-
-        block = Block(prev_hash, txs, None)
+                for inp in tx.inputs:
+                    if inp not in temp_utxos:
+                        return None
+                    del temp_utxos[inp]
+            tx_hash = tx.hash()
+            for idx, output in enumerate(tx.outputs):
+                temp_utxos[(tx_hash, idx)] = output
+        block = Block(prev_hash, txs)
         block.mine()
+        
         return block
-
 
     def is_valid_block(self, block: Block, chain: Blockchain) -> bool:
         """Validate a block's proof of work and all transactions."""
@@ -192,7 +186,7 @@ class Node:
         # Validate all transactions with a temporary UTXO set
         # This allows transactions in the same block to spend outputs
         # created by earlier transactions in the same block
-        temp_utxos = chain.utxos.copy()
+        temp_utxos = [utxo.copy() for utxo in chain.utxos]
         temp_chain = Blockchain(chain=chain.chain.copy(), utxos=temp_utxos)
 
         for i, tx in enumerate(block.txs):
@@ -233,52 +227,8 @@ class Node:
         #       - tx_data = bytes.fromhex(tx.bytes_to_sign())
         # Hint: Use verify_p2pkh(signature, pubkey, expected_hash, tx_data)
         # Hint: Match UTXOs using txid and output_index (like Bitcoin's outpoint)
-        if tx.is_coinbase():
-            if not is_coinbase_allowed:
-                return False
-            if sum(output.value for output in tx.outputs) > BLOCK_REWARD:
-                return False
-            return True
-        
-        # Check for duplicate inputs within the transaction
-        seen = set()
-        for inp in tx.inputs:
-            key = (inp.tx_hash, inp.output_index)
-            if key in seen:
-                return False
-            seen.add(key)
+        pass
 
-        # Validate each input
-        for inp in tx.inputs:
-            # Find the UTXO being spent
-            utxo_found = False
-            for utxo in blockchain.utxos:
-                utxo_tx_hash, utxo_index, utxo_output = utxo
-                if (inp.tx_hash == utxo_tx_hash and 
-                    inp.output_index == utxo_index and
-                    inp.output.value == utxo_output.value):
-                    utxo_found = True
-                    break
-            
-            if not utxo_found:
-                return False
-
-            # Verify signature
-            signature = bytes.fromhex(inp.script_sig.elements[0])
-            pubkey = bytes.fromhex(inp.script_sig.elements[1])
-            expected_hash = bytes.fromhex(inp.output.script_pubkey.elements[2])
-            tx_data = bytes.fromhex(tx.bytes_to_sign())
-            
-            if not verify_p2pkh(signature, pubkey, expected_hash, tx_data):
-                return False
-
-        # Check input total equals output total
-        if sum(inp.output.value for inp in tx.inputs) != sum(out.value for out in tx.outputs):
-            return False
-    
-        return True
-
-        
     def update_utxos(self, blockchain: Blockchain, tx: Transaction):
         """
         Update UTXO set after a transaction is confirmed.
@@ -288,18 +238,17 @@ class Node:
         """
         # TODO: Implement UTXO updates
         
-        # Remove spent UTXOs
+       
         for inp in tx.inputs:
-            for utxo in blockchain.utxos[:]:  # iterate over copy
+            for utxo in blockchain.utxos[:]:  
                 utxo_tx_hash, utxo_index, utxo_output = utxo
                 if inp.tx_hash == utxo_tx_hash and inp.output_index == utxo_index:
                     blockchain.utxos.remove(utxo)
                     break
 
-        # Add new UTXOs
+        
         for index, output in enumerate(tx.outputs):
             blockchain.utxos.append((tx.tx_hash, index, output))
-            
 
     def verify_pow(self, block: Block) -> bool:
         """Verify proof of work meets difficulty requirement."""
