@@ -108,7 +108,7 @@ class Node:
         # Hint: block.txs is a list of transactions - update UTXOs for each
         for chain in self.chains:
             last_block_hash = chain.chain[-1].hash()
-    
+
             if block.prev == last_block_hash:
                 if not self.is_valid_block(block, chain):
                     return False
@@ -122,7 +122,7 @@ class Node:
                 
                 self.chains.append(bchain)
                 return True
-    
+
         return False
 
 
@@ -163,16 +163,12 @@ class Node:
         temp_chain = Blockchain(chain=longest_chain.chain.copy(), utxos=temp_utxos)
         
         # Validating transactions
-        for i in range(len(txs)):
-            if i == 0:
-                is_coinbase_allowed = True
-            else:
-                is_coinbase_allowed = False
-                
-            if not self.is_transaction_valid(txs[i], temp_chain, is_coinbase_allowed):
+        # IMPORTANT: Coinbase is NOT allowed in build_block - only regular transactions
+        # Users submit regular transactions; coinbase is only valid in received blocks
+        for tx in txs:
+            if not self.is_transaction_valid(tx, temp_chain, is_coinbase_allowed=False):
                 return None
-            else:
-                self.update_utxos(temp_chain, txs[i])
+            self.update_utxos(temp_chain, tx)
             
         prev_hash = longest_chain.chain[-1].hash()
 
