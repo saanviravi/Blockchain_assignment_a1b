@@ -19,4 +19,5 @@ class Blockchain:
 
     def append(self, block: Block) -> bool:
         # TODO
+        pass
         
